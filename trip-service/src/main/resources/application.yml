@@ -1,0 +1,41 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: trip-service
+  datasource:
+    url: jdbc:h2:file:./data/trip-db;AUTO_SERVER=TRUE   # own database
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true          # Feign calls go through Resilience4j (fallbacks)
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            read-timeout: 3000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 5
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 2
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
