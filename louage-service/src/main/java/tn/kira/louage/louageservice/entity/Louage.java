@@ -29,7 +29,7 @@ public class Louage {
     }
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)//the database generates it with auto-increment (1, 2, 3...)
     private Long id;
 
     @Column(nullable = false, unique = true)
@@ -41,6 +41,7 @@ public class Louage {
     @Column(nullable = false)
     private String driverName;
 
+    // @Enumerated(EnumType.STRING) stores the text "AVAILABLE" in the DB. The alternative (ORDINAL) stores 0 or 1, which breaks silently if someone reorders the enum.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status;
