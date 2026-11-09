@@ -57,6 +57,33 @@ Add `-v` to also delete the database volumes:
 docker compose down -v
 ```
 
+## Monitoring
+
+The Compose stack also starts Prometheus and Grafana:
+
+| Service | URL | Credentials |
+|---|---|---|
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3000 | `admin` / `admin` |
+
+Every service exposes its metrics at `/actuator/prometheus`, for example
+http://localhost:8083/actuator/prometheus. Prometheus scrapes all five
+services every 15 s using their Compose hostnames, and Grafana automatically
+loads the **Louage Tracker** dashboard from
+`monitoring/grafana/dashboards`.
+
+PromQL queries used by the dashboard:
+
+| Panel | Query |
+|---|---|
+| Service up/down | `up{application=~"$service"}` |
+| Request rate | `sum by (application) (rate(http_server_requests_seconds_count{application=~"$service"}[5m]))` |
+| Average latency | `sum by (application) (rate(http_server_requests_seconds_sum{application=~"$service"}[5m])) / sum by (application) (rate(http_server_requests_seconds_count{application=~"$service"}[5m]))` |
+| p95 latency | `histogram_quantile(0.95, sum by (le, application) (rate(http_server_requests_seconds_bucket{application=~"$service"}[5m])))` |
+| 5xx error rate | `sum by (application) (rate(http_server_requests_seconds_count{application=~"$service",status=~"5.."}[5m]))` |
+| JVM heap used | `sum by (application) (jvm_memory_used_bytes{application=~"$service",area="heap"})` |
+| Circuit breaker state | `resilience4j_circuitbreaker_state{application="trip-service"} == 1` |
+
 ## Swagger (once controllers exist)
 - http://localhost:8081/swagger-ui.html
 - http://localhost:8082/swagger-ui.html
