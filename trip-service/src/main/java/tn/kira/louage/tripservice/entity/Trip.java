@@ -8,11 +8,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import tn.kira.louage.tripservice.dto.Louage;
+import tn.kira.louage.tripservice.dto.Station;
 
 @Entity
 @Table(name = "trips")
@@ -50,4 +53,13 @@ public class Trip {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status;
+
+    @Transient
+    private Louage louage;
+
+    @Transient
+    private Station departureStation;
+
+    @Transient
+    private Station destinationStation;
 }

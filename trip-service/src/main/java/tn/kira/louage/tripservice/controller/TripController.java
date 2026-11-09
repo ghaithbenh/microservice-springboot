@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import tn.kira.louage.tripservice.client.LouageClient;
+import tn.kira.louage.tripservice.client.StationClient;
 import tn.kira.louage.tripservice.entity.Trip;
 import tn.kira.louage.tripservice.repository.TripRepository;
 
@@ -24,16 +26,22 @@ import tn.kira.louage.tripservice.repository.TripRepository;
 public class TripController {
 
     private final TripRepository repository;
+    private final LouageClient louageClient;
+    private final StationClient stationClient;
 
-    public TripController(TripRepository repository) {
+    public TripController(TripRepository repository, LouageClient louageClient, StationClient stationClient) {
         this.repository = repository;
+        this.louageClient = louageClient;
+        this.stationClient = stationClient;
     }
 
     @Operation(summary = "List all trips",
             description = "Returns every trip in the registry.")
     @GetMapping
     public List<Trip> getAll() {
-        return repository.findAll();
+        List<Trip> trips = repository.findAll();
+        trips.forEach(this::fillTransientFields);
+        return trips;
     }
 
     @Operation(summary = "Get one trip",
@@ -41,8 +49,17 @@ public class TripController {
     @GetMapping("/{id}")
     public ResponseEntity<Trip> getOne(@PathVariable Long id) {
         return repository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(trip -> {
+                    fillTransientFields(trip);
+                    return ResponseEntity.ok(trip);
+                })
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private void fillTransientFields(Trip trip) {
+        trip.setLouage(louageClient.getLouage(trip.getLouageId()));
+        trip.setDepartureStation(stationClient.getStation(trip.getDepartureStationId()));
+        trip.setDestinationStation(stationClient.getStation(trip.getDestinationStationId()));
     }
 
     @Operation(summary = "Create a trip",
