@@ -20,6 +20,43 @@ Project SDK = 21. Then click "Load Maven Changes".
 3. trip-service
 4. api-gateway
 
+## Run with Docker Compose
+
+Requirements: Docker with Docker Compose v2.
+
+```bash
+docker compose up --build
+```
+
+This builds the 5 local images and starts, in order:
+
+| Service | URL |
+|---|---|
+| eureka-server | http://localhost:8761 |
+| api-gateway | http://localhost:8080 |
+| louage-service | http://localhost:8081 |
+| station-service | http://localhost:8082 |
+| trip-service | http://localhost:8083 |
+
+The gateway entry point is:
+
+```text
+http://localhost:8080/api/trips/1
+```
+
+Each business service stores its H2 database in a named volume
+(`louage-data`, `station-data`, `trip-data`). Stop the stack with:
+
+```bash
+docker compose down
+```
+
+Add `-v` to also delete the database volumes:
+
+```bash
+docker compose down -v
+```
+
 ## Swagger (once controllers exist)
 - http://localhost:8081/swagger-ui.html
 - http://localhost:8082/swagger-ui.html
