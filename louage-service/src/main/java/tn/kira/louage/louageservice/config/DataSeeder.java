@@ -21,10 +21,10 @@ public class DataSeeder {
                 log.info("Louages already seeded, skipping.");
                 return;
             }
-             .saveAll(List.of(
+            repository.saveAll(List.of(
                     Louage.builder().plateNumber("123TUN4567").capacity(9).driverName("Ali Ben Salah").status(Louage.Status.AVAILABLE).build(),
-                    Louage.builder().plateNumber("987TUER3210").capacity(8).driverName("Mehdi Trabelsi").status(Louage.Status.AVAILABLE).build(),
-                    Louage.builder().plateNumber("145TUET7890").capacity(9).driverName("Sami Gharbi").status(Louage.Status.ON_ROAD).build()
+                    Louage.builder().plateNumber("987TUN3210").capacity(8).driverName("Mehdi Trabelsi").status(Louage.Status.AVAILABLE).build(),
+                    Louage.builder().plateNumber("145TUN7890").capacity(9).driverName("Sami Gharbi").status(Louage.Status.ON_ROAD).build()
             ));
             log.info("Seeded 3 louages.");
         };
