@@ -3,6 +3,7 @@ package tn.kira.louage.tripservice.controller;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -80,7 +81,8 @@ public class TripController {
     }
 
     @Operation(summary = "Join a trip",
-            description = "Takes one seat on the trip. Returns 404 if the trip does not exist and 400 if it has already departed. "
+            description = "Takes one seat on the trip. Returns 404 if the trip does not exist, 400 if it has already departed, "
+                    + "and 503 if the louage-service is unavailable (capacity unknown, so the trip cannot be joined). "
                     + "When the last seat is taken (seatsTaken reaches the louage capacity), the trip status becomes DEPARTED.")
     @PostMapping("/{id}/join")
     public ResponseEntity<Object> join(@PathVariable Long id) {
@@ -92,6 +94,10 @@ public class TripController {
             return ResponseEntity.badRequest().body("Trip already departed");
         }
         int capacity = louageClient.getLouage(trip.getLouageId()).getCapacity();
+        if (capacity == 0) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Louage service unavailable: cannot verify capacity, trip cannot be joined");
+        }
         trip.setSeatsTaken(trip.getSeatsTaken() + 1);
         if (trip.getSeatsTaken() >= capacity) {
             trip.setStatus(Trip.Status.DEPARTED);
