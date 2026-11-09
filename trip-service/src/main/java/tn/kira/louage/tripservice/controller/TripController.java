@@ -79,6 +79,28 @@ public class TripController {
                 .body(saved);
     }
 
+    @Operation(summary = "Join a trip",
+            description = "Takes one seat on the trip. Returns 404 if the trip does not exist and 400 if it has already departed. "
+                    + "When the last seat is taken (seatsTaken reaches the louage capacity), the trip status becomes DEPARTED.")
+    @PostMapping("/{id}/join")
+    public ResponseEntity<Object> join(@PathVariable Long id) {
+        Trip trip = repository.findById(id).orElse(null);
+        if (trip == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (trip.getStatus() == Trip.Status.DEPARTED) {
+            return ResponseEntity.badRequest().body("Trip already departed");
+        }
+        int capacity = louageClient.getLouage(trip.getLouageId()).getCapacity();
+        trip.setSeatsTaken(trip.getSeatsTaken() + 1);
+        if (trip.getSeatsTaken() >= capacity) {
+            trip.setStatus(Trip.Status.DEPARTED);
+        }
+        Trip saved = repository.save(trip);
+        fillTransientFields(saved);
+        return ResponseEntity.ok(saved);
+    }
+
     @Operation(summary = "Update a trip",
             description = "Updates the louage, stations, seat counter, price and status of an existing trip. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
