@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -32,12 +34,15 @@ public class Louage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)//the database generates it with auto-increment (1, 2, 3...)
     private Long id;
 
+    @NotBlank(message = "plateNumber is required")
     @Column(nullable = false, unique = true)
     private String plateNumber;
 
+    @Positive(message = "capacity must be positive")
     @Column(nullable = false)
     private int capacity;
 
+    @NotBlank(message = "driverName is required")
     @Column(nullable = false)
     private String driverName;
 

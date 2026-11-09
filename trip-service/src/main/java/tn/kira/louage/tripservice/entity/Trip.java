@@ -9,6 +9,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -35,18 +38,23 @@ public class Trip {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull(message = "louageId is required")
     @Column(nullable = false)
     private Long louageId;
 
+    @NotNull(message = "departureStationId is required")
     @Column(nullable = false)
     private Long departureStationId;
 
+    @NotNull(message = "destinationStationId is required")
     @Column(nullable = false)
     private Long destinationStationId;
 
+    @PositiveOrZero(message = "seatsTaken must be zero or positive")
     @Column(nullable = false)
     private int seatsTaken;
 
+    @Positive(message = "pricePerSeat must be positive")
     @Column(nullable = false)
     private double pricePerSeat;
 

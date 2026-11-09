@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import tn.kira.louage.stationservice.entity.Station;
 import tn.kira.louage.stationservice.repository.StationRepository;
 
@@ -48,7 +49,7 @@ public class StationController {
     @Operation(summary = "Create a station",
             description = "Creates a new louage station and returns it with its generated id.")
     @PostMapping
-    public ResponseEntity<Station> create(@RequestBody Station station) {
+    public ResponseEntity<Station> create(@Valid @RequestBody Station station) {
         station.setId(null);
         Station saved = repository.save(station);
         return ResponseEntity
@@ -59,7 +60,7 @@ public class StationController {
     @Operation(summary = "Update a station",
             description = "Updates the name, city and governorate of an existing station. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
-    public ResponseEntity<Station> update(@PathVariable Long id, @RequestBody Station input) {
+    public ResponseEntity<Station> update(@PathVariable Long id, @Valid @RequestBody Station input) {
         return repository.findById(id)
                 .map(existing -> {
                     existing.setName(input.getName());

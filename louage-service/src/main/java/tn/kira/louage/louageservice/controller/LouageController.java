@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import tn.kira.louage.louageservice.entity.Louage;
 import tn.kira.louage.louageservice.repository.LouageRepository;
 
@@ -48,7 +49,7 @@ public class LouageController {
     @Operation(summary = "Create a louage",
             description = "Creates a new louage and returns it with its generated id.")
     @PostMapping
-    public ResponseEntity<Louage> create(@RequestBody Louage louage) {
+    public ResponseEntity<Louage> create(@Valid @RequestBody Louage louage) {
         louage.setId(null);
         if (louage.getStatus() == null) {
             louage.setStatus(Louage.Status.AVAILABLE);
@@ -62,7 +63,7 @@ public class LouageController {
     @Operation(summary = "Update a louage",
             description = "Updates the plate number, capacity, driver name and status of an existing louage. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
-    public ResponseEntity<Louage> update(@PathVariable Long id, @RequestBody Louage input) {
+    public ResponseEntity<Louage> update(@PathVariable Long id, @Valid @RequestBody Louage input) {
         return repository.findById(id)
                 .map(existing -> {
                     existing.setPlateNumber(input.getPlateNumber());
