@@ -75,6 +75,7 @@ public class TripController {
             trip.setSeatsTaken(0);
         }
         Trip saved = repository.save(trip);
+        fillTransientFields(saved);
         return ResponseEntity
                 .created(URI.create("/trips/" + saved.getId()))
                 .body(saved);
@@ -121,7 +122,9 @@ public class TripController {
                     if (input.getStatus() != null) {
                         existing.setStatus(input.getStatus());
                     }
-                    return ResponseEntity.ok(repository.save(existing));
+                    Trip saved = repository.save(existing);
+                    fillTransientFields(saved);
+                    return ResponseEntity.ok(saved);
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
