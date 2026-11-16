@@ -25,6 +25,7 @@
 
     <modules>
         <module>eureka-server</module>
+        <module>auth-service</module>
         <module>louage-service</module>
         <module>station-service</module>
         <module>trip-service</module>
