@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -121,6 +122,7 @@ public class TripController {
     @Operation(summary = "Create a trip",
             description = "Creates a new trip referencing a louage and two stations by id, and returns it with its generated id.")
     @PostMapping
+    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN')")
     public ResponseEntity<Trip> create(@Valid @RequestBody Trip trip) {
         trip.setId(null);
         if (trip.getStatus() == null) {
@@ -144,6 +146,7 @@ public class TripController {
                     + "When the last seat is taken (seatsTaken reaches the louage capacity), the trip status becomes DEPARTED.")
     @PostMapping("/{id}/join")
     @Transactional
+    @PreAuthorize("hasAnyRole('PASSENGER', 'ADMIN')")
     public ResponseEntity<Object> join(@PathVariable Long id) {
         Trip trip = repository.findByIdForUpdate(id).orElse(null);
         if (trip == null) {
@@ -179,6 +182,7 @@ public class TripController {
             description = "Updates the louage, stations, seat counter, price and status of an existing trip. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
     @Transactional
+    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN')")
     public ResponseEntity<Trip> update(@PathVariable Long id, @Valid @RequestBody Trip input) {
         return repository.findByIdForUpdate(id)
                 .map(existing -> {
@@ -202,6 +206,7 @@ public class TripController {
     @Operation(summary = "Delete a trip",
             description = "Deletes the trip with the given id. Returns 404 if the id is unknown.")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();

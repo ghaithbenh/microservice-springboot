@@ -7,6 +7,7 @@ WORKDIR /workspace
 COPY pom.xml .
 COPY eureka-server/pom.xml eureka-server/pom.xml
 COPY api-gateway/pom.xml api-gateway/pom.xml
+COPY auth-service/pom.xml auth-service/pom.xml
 COPY louage-service/pom.xml louage-service/pom.xml
 COPY station-service/pom.xml station-service/pom.xml
 COPY trip-service/pom.xml trip-service/pom.xml

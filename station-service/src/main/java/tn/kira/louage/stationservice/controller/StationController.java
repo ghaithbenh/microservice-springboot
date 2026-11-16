@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +50,7 @@ public class StationController {
     @Operation(summary = "Create a station",
             description = "Creates a new louage station and returns it with its generated id.")
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Station> create(@Valid @RequestBody Station station) {
         station.setId(null);
         Station saved = repository.save(station);
@@ -60,6 +62,7 @@ public class StationController {
     @Operation(summary = "Update a station",
             description = "Updates the name, city and governorate of an existing station. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Station> update(@PathVariable Long id, @Valid @RequestBody Station input) {
         return repository.findById(id)
                 .map(existing -> {
@@ -74,6 +77,7 @@ public class StationController {
     @Operation(summary = "Delete a station",
             description = "Deletes the station with the given id. Returns 404 if the id is unknown.")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();

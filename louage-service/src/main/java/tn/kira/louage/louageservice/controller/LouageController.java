@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +50,7 @@ public class LouageController {
     @Operation(summary = "Create a louage",
             description = "Creates a new louage and returns it with its generated id.")
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Louage> create(@Valid @RequestBody Louage louage) {
         louage.setId(null);
         if (louage.getStatus() == null) {
@@ -63,6 +65,7 @@ public class LouageController {
     @Operation(summary = "Update a louage",
             description = "Updates the plate number, capacity, driver name and status of an existing louage. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Louage> update(@PathVariable Long id, @Valid @RequestBody Louage input) {
         return repository.findById(id)
                 .map(existing -> {
@@ -80,6 +83,7 @@ public class LouageController {
     @Operation(summary = "Delete a louage",
             description = "Deletes the louage with the given id. Returns 404 if the id is unknown.")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();

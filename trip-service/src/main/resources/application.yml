@@ -45,6 +45,10 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka
 
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:louage-tracker-dev-secret-key-32-chars-min}
+
 management:
   endpoints:
     web:

@@ -60,6 +60,12 @@ class FallbackCauseTest {
     }
 
     @Test
+    void unauthorizedAndForbiddenAreNotServiceUnavailable() {
+        assertThat(FallbackCause.isServiceUnavailable(TestFeignExceptions.status(401))).isFalse();
+        assertThat(FallbackCause.isServiceUnavailable(TestFeignExceptions.status(403))).isFalse();
+    }
+
+    @Test
     void programmingErrorIsNotServiceUnavailable() {
         assertThat(FallbackCause.isServiceUnavailable(new IllegalArgumentException("bug"))).isFalse();
         assertThat(FallbackCause.isServiceUnavailable(new NullPointerException())).isFalse();
