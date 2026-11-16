@@ -22,6 +22,33 @@ services:
     networks:
       - louage-net
 
+  auth-service:
+    image: louage/auth-service:1.0.0
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/auth-db"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
+    volumes:
+      - auth-data:/app/data
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - louage-net
+
   louage-service:
     image: louage/louage-service:1.0.0
     build:
@@ -33,13 +60,14 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/louage-db"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
     volumes:
       - louage-data:/app/data
     depends_on:
       eureka-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/louages >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -59,13 +87,14 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/station-db"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
     volumes:
       - station-data:/app/data
     depends_on:
       eureka-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/stations >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -85,13 +114,14 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/trip-db"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
     volumes:
       - trip-data:/app/data
     depends_on:
       eureka-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/trips >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -110,8 +140,11 @@ services:
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
     depends_on:
       eureka-server:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
       louage-service:
         condition: service_healthy
@@ -120,7 +153,7 @@ services:
       trip-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/louages >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 18
@@ -141,6 +174,7 @@ services:
       - "--storage.tsdb.path=/prometheus"
     depends_on:
       - eureka-server
+      - auth-service
       - api-gateway
       - louage-service
       - station-service
@@ -175,5 +209,6 @@ volumes:
   louage-data:
   station-data:
   trip-data:
+  auth-data:
   prometheus-data:
   grafana-data:

@@ -17,6 +17,13 @@ scrape_configs:
         labels:
           application: api-gateway
 
+  - job_name: auth-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["auth-service:8084"]
+        labels:
+          application: auth-service
+
   - job_name: louage-service
     metrics_path: /actuator/prometheus
     static_configs:
