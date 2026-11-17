@@ -3,6 +3,7 @@ package tn.kira.louage.stationservice.controller;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,8 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import tn.kira.louage.stationservice.config.CacheConfig;
 import tn.kira.louage.stationservice.entity.Station;
 import tn.kira.louage.stationservice.repository.StationRepository;
+import tn.kira.louage.stationservice.service.StationQueryService;
 
 @RestController
 @RequestMapping("/stations")
@@ -26,31 +29,33 @@ import tn.kira.louage.stationservice.repository.StationRepository;
 public class StationController {
 
     private final StationRepository repository;
+    private final StationQueryService queryService;
 
-    public StationController(StationRepository repository) {
+    public StationController(StationRepository repository, StationQueryService queryService) {
         this.repository = repository;
+        this.queryService = queryService;
     }
 
     @Operation(summary = "List all stations",
             description = "Returns every louage station in the registry.")
     @GetMapping
     public List<Station> getAll() {
-        return repository.findAll();
+        return queryService.all();
     }
 
     @Operation(summary = "Get one station",
             description = "Returns the station with the given id, or 404 if it does not exist.")
     @GetMapping("/{id}")
     public ResponseEntity<Station> getOne(@PathVariable Long id) {
-        return repository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        Station station = queryService.byId(id);
+        return station == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(station);
     }
 
     @Operation(summary = "Create a station",
             description = "Creates a new louage station and returns it with its generated id.")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.STATIONS_CACHE, allEntries = true)
     public ResponseEntity<Station> create(@Valid @RequestBody Station station) {
         station.setId(null);
         Station saved = repository.save(station);
@@ -63,6 +68,7 @@ public class StationController {
             description = "Updates the name, city and governorate of an existing station. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.STATIONS_CACHE, allEntries = true)
     public ResponseEntity<Station> update(@PathVariable Long id, @Valid @RequestBody Station input) {
         return repository.findById(id)
                 .map(existing -> {
@@ -78,6 +84,7 @@ public class StationController {
             description = "Deletes the station with the given id. Returns 404 if the id is unknown.")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.STATIONS_CACHE, allEntries = true)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();

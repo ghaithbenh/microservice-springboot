@@ -13,6 +13,34 @@ if (-not $env:APP_JWT_SECRET) {
     $env:APP_JWT_SECRET = "louage-tracker-dev-secret-key-32-chars-min"
 }
 
+function Test-Redis {
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $client.Connect("127.0.0.1", 6379)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $client.Dispose()
+    }
+}
+
+if (-not (Test-Redis)) {
+    Write-Host "Redis is not reachable on 127.0.0.1:6379, starting it with docker compose..."
+    & docker compose -f (Join-Path $root "docker-compose.yml") up -d redis
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not start Redis. Start Docker Desktop or run 'docker compose up -d redis' manually."
+    }
+    $deadline = (Get-Date).AddSeconds(60)
+    while (-not (Test-Redis)) {
+        if ((Get-Date) -gt $deadline) {
+            throw "Redis did not become reachable on 127.0.0.1:6379"
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+Write-Host "Redis is reachable on 127.0.0.1:6379"
+
 $modules = @(
     @{ Name = "eureka-server";   Port = 8761 },
     @{ Name = "auth-service";    Port = 8084 },
@@ -72,6 +100,7 @@ foreach ($module in $modules) {
 
 Write-Host ""
 Write-Host "All services are up:"
+Write-Host "  Redis       redis://localhost:6379"
 Write-Host "  Eureka      http://localhost:8761"
 Write-Host "  Auth        http://localhost:8084/swagger-ui.html"
 Write-Host "  Gateway     http://localhost:8080"

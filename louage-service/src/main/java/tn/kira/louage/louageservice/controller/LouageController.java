@@ -3,6 +3,7 @@ package tn.kira.louage.louageservice.controller;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,8 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import tn.kira.louage.louageservice.config.CacheConfig;
 import tn.kira.louage.louageservice.entity.Louage;
 import tn.kira.louage.louageservice.repository.LouageRepository;
+import tn.kira.louage.louageservice.service.LouageQueryService;
 
 @RestController
 @RequestMapping("/louages")
@@ -26,31 +29,33 @@ import tn.kira.louage.louageservice.repository.LouageRepository;
 public class LouageController {
 
     private final LouageRepository repository;
+    private final LouageQueryService queryService;
 
-    public LouageController(LouageRepository repository) {
+    public LouageController(LouageRepository repository, LouageQueryService queryService) {
         this.repository = repository;
+        this.queryService = queryService;
     }
 
     @Operation(summary = "List all louages",
             description = "Returns every louage in the registry.")
     @GetMapping
     public List<Louage> getAll() {
-        return repository.findAll();
+        return queryService.all();
     }
 
     @Operation(summary = "Get one louage",
             description = "Returns the louage with the given id, or 404 if it does not exist.")
     @GetMapping("/{id}")
     public ResponseEntity<Louage> getOne(@PathVariable Long id) {
-        return repository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        Louage louage = queryService.byId(id);
+        return louage == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(louage);
     }
 
     @Operation(summary = "Create a louage",
             description = "Creates a new louage and returns it with its generated id.")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.LOUAGES_CACHE, allEntries = true)
     public ResponseEntity<Louage> create(@Valid @RequestBody Louage louage) {
         louage.setId(null);
         if (louage.getStatus() == null) {
@@ -66,6 +71,7 @@ public class LouageController {
             description = "Updates the plate number, capacity, driver name and status of an existing louage. Returns 404 if the id is unknown.")
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.LOUAGES_CACHE, allEntries = true)
     public ResponseEntity<Louage> update(@PathVariable Long id, @Valid @RequestBody Louage input) {
         return repository.findById(id)
                 .map(existing -> {
@@ -84,6 +90,7 @@ public class LouageController {
             description = "Deletes the louage with the given id. Returns 404 if the id is unknown.")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @CacheEvict(cacheNames = CacheConfig.LOUAGES_CACHE, allEntries = true)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
             return ResponseEntity.notFound().build();

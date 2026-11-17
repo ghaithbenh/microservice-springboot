@@ -1,6 +1,22 @@
 name: louage-tracker
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - louage-net
+
   eureka-server:
     image: louage/eureka-server:1.0.0
     build:
@@ -61,10 +77,14 @@ services:
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/louage-db"
       APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
     volumes:
       - louage-data:/app/data
     depends_on:
       eureka-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health >/dev/null"]
@@ -88,10 +108,14 @@ services:
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/station-db"
       APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
     volumes:
       - station-data:/app/data
     depends_on:
       eureka-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health >/dev/null"]
@@ -141,8 +165,12 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       APP_JWT_SECRET: ${APP_JWT_SECRET:-louage-tracker-dev-secret-key-32-chars-min}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
     depends_on:
       eureka-server:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       auth-service:
         condition: service_healthy
@@ -206,6 +234,7 @@ networks:
     driver: bridge
 
 volumes:
+  redis-data:
   louage-data:
   station-data:
   trip-data:

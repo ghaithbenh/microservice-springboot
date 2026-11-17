@@ -19,12 +19,16 @@ import org.springframework.http.ResponseEntity;
 
 import tn.kira.louage.louageservice.entity.Louage;
 import tn.kira.louage.louageservice.repository.LouageRepository;
+import tn.kira.louage.louageservice.service.LouageQueryService;
 
 @ExtendWith(MockitoExtension.class)
 class LouageControllerTest {
 
     @Mock
     private LouageRepository repository;
+
+    @Mock
+    private LouageQueryService queryService;
 
     @InjectMocks
     private LouageController controller;
@@ -51,14 +55,14 @@ class LouageControllerTest {
 
     @Test
     void getAllReturnsRepositoryContent() {
-        when(repository.findAll()).thenReturn(List.of(louage(1L, "123TUN4567", 9, Louage.Status.AVAILABLE)));
+        when(queryService.all()).thenReturn(List.of(louage(1L, "123TUN4567", 9, Louage.Status.AVAILABLE)));
 
         assertThat(controller.getAll()).hasSize(1);
     }
 
     @Test
     void getOneReturns200WhenFound() {
-        when(repository.findById(1L)).thenReturn(Optional.of(louage(1L, "123TUN4567", 9, Louage.Status.AVAILABLE)));
+        when(queryService.byId(1L)).thenReturn(louage(1L, "123TUN4567", 9, Louage.Status.AVAILABLE));
 
         ResponseEntity<Louage> response = controller.getOne(1L);
 
@@ -68,7 +72,7 @@ class LouageControllerTest {
 
     @Test
     void getOneReturns404WhenMissing() {
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+        when(queryService.byId(99L)).thenReturn(null);
 
         assertThat(controller.getOne(99L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
