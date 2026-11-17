@@ -19,12 +19,16 @@ import org.springframework.http.ResponseEntity;
 
 import tn.kira.louage.stationservice.entity.Station;
 import tn.kira.louage.stationservice.repository.StationRepository;
+import tn.kira.louage.stationservice.service.StationQueryService;
 
 @ExtendWith(MockitoExtension.class)
 class StationControllerTest {
 
     @Mock
     private StationRepository repository;
+
+    @Mock
+    private StationQueryService queryService;
 
     @InjectMocks
     private StationController controller;
@@ -50,14 +54,14 @@ class StationControllerTest {
 
     @Test
     void getAllReturnsRepositoryContent() {
-        when(repository.findAll()).thenReturn(List.of(station(1L, "Station Moncef Bey")));
+        when(queryService.all()).thenReturn(List.of(station(1L, "Station Moncef Bey")));
 
         assertThat(controller.getAll()).hasSize(1);
     }
 
     @Test
     void getOneReturns200WhenFound() {
-        when(repository.findById(1L)).thenReturn(Optional.of(station(1L, "Station Moncef Bey")));
+        when(queryService.byId(1L)).thenReturn(station(1L, "Station Moncef Bey"));
 
         ResponseEntity<Station> response = controller.getOne(1L);
 
@@ -67,7 +71,7 @@ class StationControllerTest {
 
     @Test
     void getOneReturns404WhenMissing() {
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+        when(queryService.byId(99L)).thenReturn(null);
 
         assertThat(controller.getOne(99L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }

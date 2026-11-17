@@ -155,6 +155,64 @@ concurrent join wins the race. If every retry collides the endpoint returns
 `409 Conflict`; a trip that is already full or departed still returns `400`.
 This guarantees `seatsTaken` never exceeds the louage capacity.
 
+## Redis: rate limiting and caching
+
+Redis is used for two things:
+
+1. **Gateway rate limiting** (`RequestRateLimiter` + `RedisRateLimiter`).
+   Requests are keyed by the authenticated username, falling back to the
+   client IP (`X-Forwarded-For` or the socket address) for anonymous calls.
+   Swagger and actuator endpoints are not under `/api/**`, so they are exempt.
+2. **Response caching** in `louage-service` and `station-service`
+   (`GET /louages`, `GET /louages/{id}`, `GET /stations`, `GET /stations/{id}`).
+   Entries are JSON-serialized and expire after 5 minutes. Create, update and
+   delete evict the whole cache for that service. If Redis is down, a lenient
+   `CacheErrorHandler` logs a warning and the request falls back to the
+   database, so reads keep working.
+
+Rate limits (per user, per route):
+
+| Route | Replenish | Burst |
+|---|---|---|
+| `/api/auth/login` | 5 rps | 5 |
+| `/api/**` (all other routes) | 10 rps | 20 |
+
+When the limit is exceeded the gateway returns `429` with a JSON body:
+
+```json
+{"status":429,"error":"Too Many Requests","message":"Rate limit exceeded. Please slow down and retry."}
+```
+
+Start Redis only with `docker compose up -d redis`, or start the whole stack
+with `./start-all.ps1` (it starts Redis automatically if port 6379 is closed).
+Connection settings default to `localhost:6379` and can be overridden with
+`SPRING_DATA_REDIS_HOST` / `SPRING_DATA_REDIS_PORT`.
+
+Quick check that throttling kicks in (30 fast calls, expect some `429`s):
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"passenger","password":"passenger123"}' | jq -r .token)
+
+for i in $(seq 1 30); do
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/louages)
+  echo "$i -> $code"
+done
+```
+
+Quick check that an update invalidates the cache (the second `GET` shows
+`"name":"Updated Station"`, never the old cached value):
+
+```bash
+curl -s -X PUT http://localhost:8080/api/stations/1 \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"Updated Station","city":"Tunis","governorate":"Tunis"}'
+
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/stations/1
+```
+
 ## Swagger (once controllers exist)
 - http://localhost:8081/swagger-ui.html
 - http://localhost:8082/swagger-ui.html

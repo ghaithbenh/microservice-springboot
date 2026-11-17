@@ -4,35 +4,76 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   cloud:
     gateway:
       routes:
         # lb:// = load-balanced, the host is resolved through Eureka (no hardcoded URL)
         # /api/louages/1  ->  louage-service  /louages/1
+        # Login is declared first with a stricter limit (5 rps, burst 5).
+        - id: auth-login
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/login
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 5
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: louage-service
           uri: lb://louage-service
           predicates:
             - Path=/api/louages/**
           filters:
             - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: auth-service
           uri: lb://auth-service
           predicates:
             - Path=/api/auth/**
           filters:
             - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: station-service
           uri: lb://station-service
           predicates:
             - Path=/api/stations/**
           filters:
             - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
         - id: trip-service
           uri: lb://trip-service
           predicates:
             - Path=/api/trips/**
           filters:
             - RewritePath=/api/(?<segment>.*), /$\{segment}
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
 
 eureka:
   client:
