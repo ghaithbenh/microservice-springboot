@@ -3,6 +3,7 @@ package tn.kira.louage.tripservice.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import tn.kira.louage.tripservice.dto.Louage;
 import tn.kira.louage.tripservice.dto.Station;
 import tn.kira.louage.tripservice.entity.Trip;
 import tn.kira.louage.tripservice.repository.TripRepository;
+import tn.kira.louage.tripservice.service.TripJoinService;
 
 @ExtendWith(MockitoExtension.class)
 class TripControllerTest {
@@ -38,6 +40,9 @@ class TripControllerTest {
 
     @Mock
     private StationClient stationClient;
+
+    @Mock
+    private TripJoinService joinService;
 
     @InjectMocks
     private TripController controller;
@@ -236,25 +241,25 @@ class TripControllerTest {
 
     @Test
     void joinReturns404WhenTripMissing() {
-        when(repository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
+        when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThat(controller.join(99L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
     void joinRejectsDepartedTripWith400() {
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(trip(1L, 9, Trip.Status.DEPARTED)));
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 9, Trip.Status.DEPARTED)));
 
         ResponseEntity<Object> response = controller.join(1L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isEqualTo("Trip already departed");
-        verify(repository, never()).save(any());
+        verify(joinService, never()).join(anyLong(), anyInt());
     }
 
     @Test
     void joinRejectsUnknownLouageWith400() {
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(trip(1L, 4, Trip.Status.WAITING)));
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 4, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(null);
 
         ResponseEntity<Object> response = controller.join(1L);
@@ -265,40 +270,39 @@ class TripControllerTest {
 
     @Test
     void joinRefusesWhenCapacityCannotBeVerified() {
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(trip(1L, 4, Trip.Status.WAITING)));
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 4, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(unavailableLouage());
 
         ResponseEntity<Object> response = controller.join(1L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat((String) response.getBody()).contains("cannot verify capacity");
-        verify(repository, never()).save(any());
+        verify(joinService, never()).join(anyLong(), anyInt());
     }
 
     @Test
     void joinRejectsFullTripAndForcesDepartedStatus() {
-        Trip full = trip(1L, 9, Trip.Status.WAITING);
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(full));
+        Trip full = trip(1L, 9, Trip.Status.DEPARTED);
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 9, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(louage(9));
-        stubSaveAssignsId();
+        when(joinService.join(1L, 9)).thenReturn(new TripJoinService.JoinOutcome(
+                TripJoinService.JoinStatus.FULL, full));
 
         ResponseEntity<Object> response = controller.join(1L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isEqualTo("No seats available on this trip");
-        assertThat(full.getStatus()).isEqualTo(Trip.Status.DEPARTED);
-        assertThat(full.getSeatsTaken()).isEqualTo(9);
-        verify(repository).save(full);
+        verify(joinService).join(1L, 9);
     }
 
     @Test
     void joinIncrementsOneSeat() {
-        Trip existing = trip(1L, 4, Trip.Status.WAITING);
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 4, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(louage(9));
+        when(joinService.join(1L, 9)).thenReturn(new TripJoinService.JoinOutcome(
+                TripJoinService.JoinStatus.SUCCESS, trip(1L, 5, Trip.Status.WAITING)));
         when(stationClient.getStation(1L)).thenReturn(station(1L));
         when(stationClient.getStation(3L)).thenReturn(station(3L));
-        stubSaveAssignsId();
 
         ResponseEntity<Object> response = controller.join(1L);
 
@@ -310,12 +314,12 @@ class TripControllerTest {
 
     @Test
     void joinMarksDepartedWhenLastSeatTaken() {
-        Trip existing = trip(1L, 8, Trip.Status.WAITING);
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 8, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(louage(9));
+        when(joinService.join(1L, 9)).thenReturn(new TripJoinService.JoinOutcome(
+                TripJoinService.JoinStatus.SUCCESS, trip(1L, 9, Trip.Status.DEPARTED)));
         when(stationClient.getStation(1L)).thenReturn(station(1L));
         when(stationClient.getStation(3L)).thenReturn(station(3L));
-        stubSaveAssignsId();
 
         ResponseEntity<Object> response = controller.join(1L);
 
@@ -327,19 +331,21 @@ class TripControllerTest {
 
     @Test
     void joinNeverExceedsCapacity() {
-        Trip existing = trip(1L, 8, Trip.Status.WAITING);
-        when(repository.findByIdForUpdate(1L)).thenReturn(Optional.of(existing));
+        Trip filled = trip(1L, 9, Trip.Status.DEPARTED);
+        when(repository.findById(1L)).thenReturn(Optional.of(trip(1L, 8, Trip.Status.WAITING)));
         when(louageClient.getLouage(1L)).thenReturn(louage(9));
+        when(joinService.join(1L, 9)).thenReturn(
+                new TripJoinService.JoinOutcome(TripJoinService.JoinStatus.SUCCESS, filled),
+                new TripJoinService.JoinOutcome(TripJoinService.JoinStatus.DEPARTED, filled));
         when(stationClient.getStation(1L)).thenReturn(station(1L));
         when(stationClient.getStation(3L)).thenReturn(station(3L));
-        stubSaveAssignsId();
 
-        controller.join(1L);
+        assertThat(controller.join(1L).getStatusCode()).isEqualTo(HttpStatus.OK);
         // A second join must be refused by the DEPARTED guard.
         ResponseEntity<Object> second = controller.join(1L);
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(existing.getSeatsTaken()).isEqualTo(9);
+        assertThat(filled.getSeatsTaken()).isEqualTo(9);
     }
 
     // ---------------------------------------------------------------- update
