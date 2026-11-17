@@ -26,6 +26,7 @@ import tn.kira.louage.tripservice.dto.Louage;
 import tn.kira.louage.tripservice.dto.Station;
 import tn.kira.louage.tripservice.entity.Trip;
 import tn.kira.louage.tripservice.repository.TripRepository;
+import tn.kira.louage.tripservice.service.TripJoinService;
 
 @RestController
 @RequestMapping("/trips")
@@ -35,11 +36,14 @@ public class TripController {
     private final TripRepository repository;
     private final LouageClient louageClient;
     private final StationClient stationClient;
+    private final TripJoinService joinService;
 
-    public TripController(TripRepository repository, LouageClient louageClient, StationClient stationClient) {
+    public TripController(TripRepository repository, LouageClient louageClient, StationClient stationClient,
+            TripJoinService joinService) {
         this.repository = repository;
         this.louageClient = louageClient;
         this.stationClient = stationClient;
+        this.joinService = joinService;
     }
 
     @Operation(summary = "List all trips",
@@ -145,37 +149,37 @@ public class TripController {
                     + "or has no seats left, and 503 if the louage-service is unavailable (capacity unknown, so the trip cannot be joined). "
                     + "When the last seat is taken (seatsTaken reaches the louage capacity), the trip status becomes DEPARTED.")
     @PostMapping("/{id}/join")
-    @Transactional
     @PreAuthorize("hasAnyRole('PASSENGER', 'ADMIN')")
     public ResponseEntity<Object> join(@PathVariable Long id) {
-        Trip trip = repository.findByIdForUpdate(id).orElse(null);
-        if (trip == null) {
+        Trip snapshot = repository.findById(id).orElse(null);
+        if (snapshot == null) {
             return ResponseEntity.notFound().build();
         }
-        if (trip.getStatus() == Trip.Status.DEPARTED) {
+        if (snapshot.getStatus() == Trip.Status.DEPARTED) {
             return ResponseEntity.badRequest().body("Trip already departed");
         }
-        Louage louage = louageClient.getLouage(trip.getLouageId());
+        // Resolve the capacity BEFORE opening the join transaction: the Feign
+        // call must never run inside a database transaction.
+        Louage louage = louageClient.getLouage(snapshot.getLouageId());
         if (louage == null) {
-            return ResponseEntity.badRequest().body("Louage not found: " + trip.getLouageId());
+            return ResponseEntity.badRequest().body("Louage not found: " + snapshot.getLouageId());
         }
         if (isLouageUnavailable(louage) || louage.getCapacity() <= 0) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body("Louage service unavailable: cannot verify capacity, trip cannot be joined");
         }
-        int capacity = louage.getCapacity();
-        if (trip.getSeatsTaken() >= capacity) {
-            trip.setStatus(Trip.Status.DEPARTED);
-            repository.save(trip);
-            return ResponseEntity.badRequest().body("No seats available on this trip");
-        }
-        trip.setSeatsTaken(trip.getSeatsTaken() + 1);
-        if (trip.getSeatsTaken() >= capacity) {
-            trip.setStatus(Trip.Status.DEPARTED);
-        }
-        Trip saved = repository.save(trip);
-        fillTransientFields(saved);
-        return ResponseEntity.ok(saved);
+
+        TripJoinService.JoinOutcome outcome = joinService.join(id, louage.getCapacity());
+        return switch (outcome.status()) {
+            case NOT_FOUND -> ResponseEntity.notFound().build();
+            case DEPARTED -> ResponseEntity.badRequest().body("Trip already departed");
+            case FULL -> ResponseEntity.badRequest().body("No seats available on this trip");
+            case SUCCESS -> {
+                Trip saved = outcome.trip();
+                fillTransientFields(saved);
+                yield ResponseEntity.ok(saved);
+            }
+        };
     }
 
     @Operation(summary = "Update a trip",

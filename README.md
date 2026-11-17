@@ -146,6 +146,15 @@ station-service through Feign, it forwards the incoming `Authorization`
 header, so the partner services see the same user. A `401`/`403` from a
 partner is surfaced as an authorization error, not as a service outage.
 
+### Concurrency
+
+`POST /trips/{id}/join` uses optimistic locking (`@Version` on `Trip`). The
+louage capacity is fetched from `louage-service` **before** the database
+transaction starts, and the seat increment retries up to 5 times when a
+concurrent join wins the race. If every retry collides the endpoint returns
+`409 Conflict`; a trip that is already full or departed still returns `400`.
+This guarantees `seatsTaken` never exceeds the louage capacity.
+
 ## Swagger (once controllers exist)
 - http://localhost:8081/swagger-ui.html
 - http://localhost:8082/swagger-ui.html
